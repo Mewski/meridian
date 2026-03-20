@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.11.0](https://github.com/rynfar/opencode-claude-max-proxy/compare/v1.10.1...v1.11.0) (2026-03-20)
+
+
+### Features
+
+* multimodal content support (images, documents, files) ([0e6fc7a](https://github.com/rynfar/opencode-claude-max-proxy/commit/0e6fc7ac6ef894a86d05fcd665a992816ba86139))
+* multimodal content support (images, documents, files) ([bc072cb](https://github.com/rynfar/opencode-claude-max-proxy/commit/bc072cbcbb18521328cc1e5309016f197d9d0040))
+
+
+### Bug Fixes
+
+* include mcpTools.ts in published package files ([10d8ee8](https://github.com/rynfar/opencode-claude-max-proxy/commit/10d8ee8441dada2fd454328161e4471de79e9776))
+* include mcpTools.ts in published package files ([5039707](https://github.com/rynfar/opencode-claude-max-proxy/commit/50397077c86627a9a5103a0e69dd781cae5cd145))
+* include src/plugin/ in published package files ([799e29e](https://github.com/rynfar/opencode-claude-max-proxy/commit/799e29e0c0ad9357518fecdb32f7a92715f2abac))
+
 ## [1.10.1](https://github.com/rynfar/opencode-claude-max-proxy/compare/v1.10.0...v1.10.1) (2026-03-20)
 
 
