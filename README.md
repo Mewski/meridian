@@ -44,18 +44,9 @@ Meridian bridges that gap. It runs locally, accepts standard Anthropic API reque
 
 ## How It Works
 
-```
-┌─────────────┐     ┌─────────────┐     ┌──────────────────┐     ┌───────────┐
-│  Your Tool  │────▶│  Meridian   │────▶│  Claude Code SDK │────▶│  Claude   │
-│  (OpenCode, │◀────│  (local)    │◀────│  (official)      │◀────│  (cloud)  │
-│   Crush,    │     │  :3456      │     │                  │     │           │
-│  Cline, …)  │     │             │     │                  │     │           │
-└─────────────┘     └─────────────┘     └──────────────────┘     └───────────┘
-     Anthropic           Bridges              Anthropic's            Your Max
-     API format          the gap              own SDK               subscription
-```
-
-Your tool sends a standard Anthropic API request. Meridian translates it into a Claude Code SDK call. The SDK authenticates through your Max subscription. Claude responds. Meridian translates back. Your tool gets the response.
+<p align="center">
+  <img src="assets/how-it-works.svg" alt="How Meridian works" width="920"/>
+</p>
 
 ## Features
 
