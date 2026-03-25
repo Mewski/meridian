@@ -15,8 +15,8 @@ Meridian turns your Claude Max subscription into a local Anthropic API. Any tool
 
 Harness Claude, your way.
 
-> [!NOTE]
-> **This project is becoming Meridian.** The npm package name will change from `opencode-claude-max-proxy` to `meridian` in a future release. The current install command and all existing configurations will continue to work until then.
+> [!IMPORTANT]
+> **🚀 This project is becoming Meridian.** The npm package will be renamed from `opencode-claude-max-proxy` to `meridian` in an upcoming release. Your current install and all existing configurations will continue to work — no action needed yet.
 
 ## Quick Start
 
