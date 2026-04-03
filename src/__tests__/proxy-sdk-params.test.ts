@@ -22,7 +22,9 @@ import {
 import { mkdtempSync, rmSync } from "node:fs"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
-import { setSessionStoreDir, storeSharedSession } from "../proxy/sessionStore"
+// Import sessionStore via the same module graph as server.ts so setSessionStoreDir
+// affects the same singleton that the server/cache layer reads from.
+const { setSessionStoreDir, storeSharedSession } = await import("../proxy/sessionStore")
 
 // ─── captured query params ────────────────────────────────────────────────────
 let capturedOptions: Record<string, unknown> = {}
