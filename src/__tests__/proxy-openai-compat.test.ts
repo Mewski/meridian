@@ -87,8 +87,8 @@ describe("POST /v1/chat/completions — non-streaming", () => {
     expect(body.model).toBe("claude-haiku-4-5-20251001")
     const choices = body.choices as Array<Record<string, unknown>>
     expect(choices).toBeArray()
-    expect(choices[0].message).toEqual({ role: "assistant", content: "Hello!" })
-    expect(choices[0].finish_reason).toBe("stop")
+    expect(choices[0]!.message).toEqual({ role: "assistant", content: "Hello!" })
+    expect(choices[0]!.finish_reason).toBe("stop")
     const usage = body.usage as Record<string, number>
     expect(typeof usage.prompt_tokens).toBe("number")
     expect(typeof usage.completion_tokens).toBe("number")
@@ -131,7 +131,7 @@ describe("POST /v1/chat/completions — non-streaming", () => {
 
     const body = await res.json() as Record<string, unknown>
     const choices = body.choices as Array<Record<string, unknown>>
-    expect((choices[0].message as Record<string, unknown>).content).toBe("public answer")
+    expect((choices[0]!.message as Record<string, unknown>).content).toBe("public answer")
   })
 
   it("handles system message correctly", async () => {
@@ -216,13 +216,13 @@ describe("POST /v1/chat/completions — streaming", () => {
     const dataLines = text.split("\n").filter(l => l.startsWith("data: ") && l !== "data: [DONE]")
     expect(dataLines.length).toBeGreaterThan(0)
 
-    const firstChunk = JSON.parse(dataLines[0].slice(6)) as Record<string, unknown>
+    const firstChunk = JSON.parse(dataLines[0]!.slice(6)) as Record<string, unknown>
     expect(firstChunk.object).toBe("chat.completion.chunk")
     expect(typeof firstChunk.id).toBe("string")
     expect((firstChunk.id as string).startsWith("chatcmpl-")).toBe(true)
 
     const choices = firstChunk.choices as Array<Record<string, unknown>>
-    expect(choices[0].delta).toHaveProperty("role", "assistant")
+    expect(choices[0]!.delta).toHaveProperty("role", "assistant")
   })
 
   it("emits text content chunks", async () => {
@@ -244,12 +244,12 @@ describe("POST /v1/chat/completions — streaming", () => {
       .map(l => JSON.parse(l.slice(6)) as Record<string, unknown>)
       .filter(c => {
         const choices = c.choices as Array<Record<string, unknown>>
-        const delta = choices[0].delta as Record<string, unknown>
+        const delta = choices[0]!.delta as Record<string, unknown>
         return typeof delta.content === "string" && delta.content.length > 0
       })
       .map(c => {
         const choices = c.choices as Array<Record<string, unknown>>
-        return (choices[0].delta as Record<string, unknown>).content as string
+        return (choices[0]!.delta as Record<string, unknown>).content as string
       })
 
     expect(contentChunks.join("")).toBe("Hello World")
@@ -274,11 +274,11 @@ describe("POST /v1/chat/completions — streaming", () => {
 
     const finishChunk = chunks.find(c => {
       const choices = c.choices as Array<Record<string, unknown>>
-      return choices[0].finish_reason !== null
+      return choices[0]!.finish_reason !== null
     })
     expect(finishChunk).toBeDefined()
     const choices = finishChunk!.choices as Array<Record<string, unknown>>
-    expect(choices[0].finish_reason).toBe("stop")
+    expect(choices[0]!.finish_reason).toBe("stop")
   })
 
   it("ends stream with data: [DONE]", async () => {

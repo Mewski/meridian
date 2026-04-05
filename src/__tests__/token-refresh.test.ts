@@ -9,6 +9,11 @@
 import { describe, it, expect, mock, beforeEach, afterEach } from "bun:test"
 import type { CredentialStore } from "../proxy/tokenRefresh"
 
+/** Assign a mock to globalThis.fetch without TS complaining about missing `preconnect` */
+function mockFetch(fn: (...args: unknown[]) => Promise<Response | never>): void {
+  globalThis.fetch = fn as typeof fetch
+}
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -108,21 +113,21 @@ describe("refreshOAuthToken", () => {
 
   it("returns false when fetch throws", async () => {
     const { store } = makeStore()
-    globalThis.fetch = mock(async () => { throw new Error("network error") })
+    mockFetch(mock(async () => { throw new Error("network error") }))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
     expect(await refreshOAuthToken(store)).toBe(false)
   })
 
   it("returns false on non-ok HTTP response", async () => {
     const { store } = makeStore()
-    globalThis.fetch = mock(async () => new Response("Unauthorized", { status: 401 }))
+    mockFetch(mock(async () => new Response("Unauthorized", { status: 401 })))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
     expect(await refreshOAuthToken(store)).toBe(false)
   })
 
   it("returns false when response body is invalid JSON", async () => {
     const { store } = makeStore()
-    globalThis.fetch = mock(async () => new Response("not-json", { status: 200 }))
+    mockFetch(mock(async () => new Response("not-json", { status: 200 })))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
     expect(await refreshOAuthToken(store)).toBe(false)
   })
@@ -133,7 +138,7 @@ describe("refreshOAuthToken", () => {
 
   it("returns false when credential write fails", async () => {
     const store = makeFailingWriteStore()
-    globalThis.fetch = mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE))
+    mockFetch(mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE)))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
     expect(await refreshOAuthToken(store)).toBe(false)
   })
@@ -144,7 +149,7 @@ describe("refreshOAuthToken", () => {
 
   it("returns true and writes updated tokens on success", async () => {
     const { store, getStored } = makeStore()
-    globalThis.fetch = mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE))
+    mockFetch(mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE)))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     expect(await refreshOAuthToken(store)).toBe(true)
@@ -154,9 +159,9 @@ describe("refreshOAuthToken", () => {
 
   it("preserves old refreshToken when response omits it", async () => {
     const { store, getStored } = makeStore()
-    globalThis.fetch = mock(async () =>
+    mockFetch(mock(async () =>
       makeSuccessResponse({ access_token: "new-access-token", expires_in: 3600 })
-    )
+    ))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     expect(await refreshOAuthToken(store)).toBe(true)
@@ -165,7 +170,7 @@ describe("refreshOAuthToken", () => {
 
   it("preserves extra top-level credential file fields", async () => {
     const { store, getStored } = makeStore()
-    globalThis.fetch = mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE))
+    mockFetch(mock(async () => makeSuccessResponse(MOCK_TOKEN_RESPONSE)))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     expect(await refreshOAuthToken(store)).toBe(true)
@@ -175,9 +180,9 @@ describe("refreshOAuthToken", () => {
   it("sets expiresAt from expires_in", async () => {
     const { store, getStored } = makeStore()
     const before = Date.now()
-    globalThis.fetch = mock(async () =>
+    mockFetch(mock(async () =>
       makeSuccessResponse({ access_token: "tok", expires_in: 3600 })
-    )
+    ))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     expect(await refreshOAuthToken(store)).toBe(true)
@@ -189,9 +194,9 @@ describe("refreshOAuthToken", () => {
   it("prefers expires_at over expires_in when both present", async () => {
     const { store, getStored } = makeStore()
     const fixedExpiry = Date.now() + 9999999
-    globalThis.fetch = mock(async () =>
+    mockFetch(mock(async () =>
       makeSuccessResponse({ access_token: "tok", expires_at: fixedExpiry, expires_in: 3600 })
-    )
+    ))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     expect(await refreshOAuthToken(store)).toBe(true)
@@ -205,10 +210,10 @@ describe("refreshOAuthToken", () => {
   it("concurrent calls share one in-flight request", async () => {
     const { store } = makeStore()
     let fetchCount = 0
-    globalThis.fetch = mock(async () => {
+    mockFetch(mock(async () => {
       fetchCount++
       return makeSuccessResponse(MOCK_TOKEN_RESPONSE)
-    })
+    }))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     const [r1, r2, r3] = await Promise.all([
@@ -226,10 +231,10 @@ describe("refreshOAuthToken", () => {
   it("allows a second refresh after the first completes", async () => {
     const { store } = makeStore()
     let fetchCount = 0
-    globalThis.fetch = mock(async () => {
+    mockFetch(mock(async () => {
       fetchCount++
       return makeSuccessResponse(MOCK_TOKEN_RESPONSE)
-    })
+    }))
     const { refreshOAuthToken } = await import("../proxy/tokenRefresh")
 
     await refreshOAuthToken(store)

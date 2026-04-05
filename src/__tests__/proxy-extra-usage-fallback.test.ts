@@ -249,8 +249,8 @@ describe("Extra usage required fallback", () => {
       expect(body.content).toBeDefined()
       // Two query calls: first (sonnet[1m]) failed, second (sonnet) succeeded
       expect(queryCalls.length).toBe(2)
-      expect(queryCalls[0].model).toBe("sonnet[1m]")
-      expect(queryCalls[1].model).toBe("sonnet")
+      expect(queryCalls[0]!.model).toBe("sonnet[1m]")
+      expect(queryCalls[1]!.model).toBe("sonnet")
     })
   })
 })

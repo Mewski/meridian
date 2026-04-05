@@ -222,7 +222,7 @@ describe("piAdapter.extractFileChangesFromToolUse", () => {
   it("detects bash commands with output redirects", () => {
     const changes = piAdapter.extractFileChangesFromToolUse!("bash", { command: "echo hello > /tmp/out.txt" })
     expect(changes.length).toBeGreaterThan(0)
-    expect(changes[0].path).toBe("/tmp/out.txt")
+    expect(changes[0]!.path).toBe("/tmp/out.txt")
   })
 
   it("returns empty for read tool", () => {

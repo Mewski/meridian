@@ -370,7 +370,7 @@ describe("passthrough streaming — thinking block filtering", () => {
       parent_tool_use_id: null,
       uuid: crypto.randomUUID(),
       session_id: "test-session",
-    } as SDKMessage
+    } as unknown as SDKMessage
 
     mockMessages = [
       messageStart(),

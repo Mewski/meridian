@@ -193,7 +193,7 @@ describe("translateOpenAiToAnthropic", () => {
         content: [{ type: "text", text: "structured" }],
       }],
     })
-    expect(result!.messages[0].content).toBe("structured")
+    expect(result!.messages[0]!.content).toBe("structured")
   })
 
   it("sets stream from body", () => {
@@ -236,9 +236,9 @@ describe("translateAnthropicToOpenAi", () => {
     expect(result.object).toBe("chat.completion")
     expect(result.created).toBe(CREATED)
     expect(result.model).toBe(MODEL)
-    expect(result.choices[0].message.role).toBe("assistant")
-    expect(result.choices[0].message.content).toBe("Hello!")
-    expect(result.choices[0].finish_reason).toBe("stop")
+    expect(result.choices[0]!.message.role).toBe("assistant")
+    expect(result.choices[0]!.message.content).toBe("Hello!")
+    expect(result.choices[0]!.finish_reason).toBe("stop")
     expect(result.usage.prompt_tokens).toBe(10)
     expect(result.usage.completion_tokens).toBe(5)
     expect(result.usage.total_tokens).toBe(15)
@@ -249,7 +249,7 @@ describe("translateAnthropicToOpenAi", () => {
       { content: [{ type: "text", text: "truncated" }], stop_reason: "max_tokens" },
       ID, MODEL, CREATED
     )
-    expect(result.choices[0].finish_reason).toBe("length")
+    expect(result.choices[0]!.finish_reason).toBe("length")
   })
 
   it("filters out thinking blocks", () => {
@@ -263,7 +263,7 @@ describe("translateAnthropicToOpenAi", () => {
       },
       ID, MODEL, CREATED
     )
-    expect(result.choices[0].message.content).toBe("actual answer")
+    expect(result.choices[0]!.message.content).toBe("actual answer")
   })
 
   it("handles empty content", () => {
@@ -271,7 +271,7 @@ describe("translateAnthropicToOpenAi", () => {
       { content: [], stop_reason: "end_turn" },
       ID, MODEL, CREATED
     )
-    expect(result.choices[0].message.content).toBe("")
+    expect(result.choices[0]!.message.content).toBe("")
   })
 
   it("handles missing usage", () => {
@@ -297,9 +297,9 @@ describe("translateAnthropicSseEvent", () => {
   it("message_start → role announcement chunk", () => {
     const chunk = translateAnthropicSseEvent({ type: "message_start" }, ID, MODEL, CREATED)
     expect(chunk).not.toBeNull()
-    expect(chunk!.choices[0].delta.role).toBe("assistant")
-    expect(chunk!.choices[0].delta.content).toBe("")
-    expect(chunk!.choices[0].finish_reason).toBeNull()
+    expect(chunk!.choices[0]!.delta.role).toBe("assistant")
+    expect(chunk!.choices[0]!.delta.content).toBe("")
+    expect(chunk!.choices[0]!.finish_reason).toBeNull()
   })
 
   it("content_block_delta text_delta → content chunk", () => {
@@ -308,8 +308,8 @@ describe("translateAnthropicSseEvent", () => {
       ID, MODEL, CREATED
     )
     expect(chunk).not.toBeNull()
-    expect(chunk!.choices[0].delta.content).toBe("hello")
-    expect(chunk!.choices[0].finish_reason).toBeNull()
+    expect(chunk!.choices[0]!.delta.content).toBe("hello")
+    expect(chunk!.choices[0]!.finish_reason).toBeNull()
   })
 
   it("content_block_delta thinking_delta → null (skipped)", () => {
@@ -326,8 +326,8 @@ describe("translateAnthropicSseEvent", () => {
       ID, MODEL, CREATED
     )
     expect(chunk).not.toBeNull()
-    expect(chunk!.choices[0].finish_reason).toBe("stop")
-    expect(chunk!.choices[0].delta).toEqual({})
+    expect(chunk!.choices[0]!.finish_reason).toBe("stop")
+    expect(chunk!.choices[0]!.delta).toEqual({})
   })
 
   it("message_delta max_tokens → finish chunk with length", () => {
@@ -335,7 +335,7 @@ describe("translateAnthropicSseEvent", () => {
       { type: "message_delta", delta: { stop_reason: "max_tokens" } },
       ID, MODEL, CREATED
     )
-    expect(chunk!.choices[0].finish_reason).toBe("length")
+    expect(chunk!.choices[0]!.finish_reason).toBe("length")
   })
 
   it("ping → null", () => {
