@@ -56,10 +56,11 @@ function jsonSchemaToZod(schema: any): z.ZodTypeAny {
  * Create an MCP server with tool definitions matching OpenCode's request.
  */
 export function createPassthroughMcpServer(
-  tools: Array<{ name: string; description?: string; input_schema?: any }>
+  tools: Array<{ name: string; description?: string; input_schema?: any; defer_loading?: boolean }>
 ) {
   const server = createSdkMcpServer({ name: PASSTHROUGH_MCP_NAME })
   const toolNames: string[] = []
+  const hasDeferredTools = tools.some(t => t.defer_loading === true)
 
   // Sort tools alphabetically by name to ensure deterministic MCP registration
   // order. Non-deterministic ordering changes the SDK system prompt between
@@ -83,7 +84,8 @@ export function createPassthroughMcpServer(
         tool.name,
         tool.description || tool.name,
         shape,
-        async () => ({ content: [{ type: "text" as const, text: "passthrough" }] })
+        async () => ({ content: [{ type: "text" as const, text: "passthrough" }] }),
+        hasDeferredTools && !tool.defer_loading ? { alwaysLoad: true } : undefined
       )
       toolNames.push(`${PASSTHROUGH_MCP_PREFIX}${tool.name}`)
     } catch {
@@ -92,13 +94,14 @@ export function createPassthroughMcpServer(
         tool.name,
         tool.description || tool.name,
         { input: z.string().optional() },
-        async () => ({ content: [{ type: "text" as const, text: "passthrough" }] })
+        async () => ({ content: [{ type: "text" as const, text: "passthrough" }] }),
+        hasDeferredTools && !tool.defer_loading ? { alwaysLoad: true } : undefined
       )
       toolNames.push(`${PASSTHROUGH_MCP_PREFIX}${tool.name}`)
     }
   }
 
-  return { server, toolNames }
+  return { server, toolNames, hasDeferredTools }
 }
 
 /**

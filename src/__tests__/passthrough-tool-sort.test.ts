@@ -37,4 +37,22 @@ describe("createPassthroughMcpServer tool ordering", () => {
       "mcp__oc__write",
     ])
   })
+
+  it("returns hasDeferredTools=true when any tool has defer_loading", () => {
+    const tools = [
+      { name: "read", description: "Read a file" },
+      { name: "custom", description: "Custom tool", defer_loading: true },
+    ]
+    const result = createPassthroughMcpServer(tools)
+    expect(result.hasDeferredTools).toBe(true)
+  })
+
+  it("returns hasDeferredTools=false when no tools have defer_loading", () => {
+    const tools = [
+      { name: "read", description: "Read a file" },
+      { name: "write", description: "Write a file" },
+    ]
+    const result = createPassthroughMcpServer(tools)
+    expect(result.hasDeferredTools).toBe(false)
+  })
 })
