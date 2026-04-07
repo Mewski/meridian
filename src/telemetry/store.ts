@@ -63,6 +63,19 @@ export class TelemetryStore {
     return results
   }
 
+  /** Find the most recent successful metric for a given SDK session ID.
+   *  Used by anomaly detection to compare consecutive turns. */
+  getLastForSession(sdkSessionId: string): RequestMetric | undefined {
+    for (let i = 0; i < this.count; i++) {
+      const idx = (this.head - 1 - i + this.capacity) % this.capacity
+      const metric = this.buffer[idx]
+      if (metric && metric.sdkSessionId === sdkSessionId && metric.error === null) {
+        return metric
+      }
+    }
+    return undefined
+  }
+
   /**
    * Compute aggregate statistics over a time window.
    * @param windowMs - Time window in ms (default: 1 hour)

@@ -29,6 +29,7 @@ import { buildQueryOptions, type QueryContext } from "./query"
 import { resolveProfile, listProfiles, setActiveProfile, getActiveProfileId, getEffectiveProfiles, restoreActiveProfile } from "./profiles"
 import { filterBetasForProfile, getBetaPolicyFromEnv } from "./betas"
 import { createFileChangeHook, extractFileChangesFromMessages, formatFileChangeSummary, type FileChange } from "./fileChanges"
+import { detectTokenAnomalies, formatAnomalyAlerts, type TokenSnapshot } from "./tokenHealth"
 import {
   computeLineageHash,
   hashMessage,
@@ -149,6 +150,59 @@ function computeCacheHitRate(usage: TokenUsage | undefined): number | undefined 
   const total = (usage.input_tokens ?? 0)
   if (total === 0) return undefined
   return read / total
+}
+
+function checkTokenHealth(
+  requestId: string,
+  sdkSessionId: string | undefined,
+  usage: TokenUsage | undefined,
+  turnNumber: number,
+  isResume: boolean,
+  isPassthrough: boolean
+): void {
+  if (!usage || !sdkSessionId) return
+
+  const cacheHitRate = computeCacheHitRate(usage) ?? 0
+  const current: TokenSnapshot = {
+    requestId,
+    turnNumber,
+    inputTokens: usage.input_tokens ?? 0,
+    outputTokens: usage.output_tokens ?? 0,
+    cacheReadInputTokens: usage.cache_read_input_tokens ?? 0,
+    cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0,
+    cacheHitRate,
+    isResume,
+    isPassthrough,
+  }
+
+  const prevMetric = telemetryStore.getLastForSession(sdkSessionId)
+  const previous: TokenSnapshot | undefined = prevMetric ? {
+    requestId: prevMetric.requestId,
+    turnNumber: turnNumber - 1,
+    inputTokens: prevMetric.inputTokens ?? 0,
+    outputTokens: prevMetric.outputTokens ?? 0,
+    cacheReadInputTokens: prevMetric.cacheReadInputTokens ?? 0,
+    cacheCreationInputTokens: prevMetric.cacheCreationInputTokens ?? 0,
+    cacheHitRate: prevMetric.cacheHitRate ?? 0,
+    isResume: prevMetric.isResume,
+    isPassthrough: prevMetric.isPassthrough,
+  } : undefined
+
+  const anomalies = detectTokenAnomalies(current, previous)
+  if (anomalies.length > 0) {
+    const alerts = formatAnomalyAlerts(requestId, anomalies)
+    for (const line of alerts) {
+      console.error(line)
+    }
+    for (const a of anomalies) {
+      diagnosticLog.log({
+        level: a.severity === "critical" ? "error" : "warn",
+        category: "token",
+        message: `${requestId} ${a.type}: ${a.detail}`,
+        requestId,
+      })
+    }
+  }
 }
 
 export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServer {
@@ -891,6 +945,14 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
             cacheCreationInputTokens: lastUsage?.cache_creation_input_tokens,
             cacheHitRate: computeCacheHitRate(lastUsage),
           })
+          checkTokenHealth(
+            requestMeta.requestId,
+            currentSessionId || resumeSessionId,
+            lastUsage,
+            allMessages.length,
+            isResume,
+            passthrough
+          )
 
           // Store session for future resume
               if (currentSessionId) {
@@ -1435,6 +1497,14 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
                   cacheCreationInputTokens: lastUsage?.cache_creation_input_tokens,
                   cacheHitRate: computeCacheHitRate(lastUsage),
                 })
+                checkTokenHealth(
+                  requestMeta.requestId,
+                  currentSessionId || resumeSessionId,
+                  lastUsage,
+                  allMessages.length,
+                  isResume,
+                  passthrough
+                )
 
                 if (textEventsForwarded === 0) {
                   claudeLog("response.empty_stream", {
