@@ -67,19 +67,33 @@ const DEFERRED_TOOL = {
   defer_loading: true,
 }
 
+// Generate N generic tools for threshold testing
+function makeTools(count: number) {
+  return Array.from({ length: count }, (_, i) => ({
+    name: `tool_${String(i).padStart(2, "0")}`,
+    description: `Tool ${i}`,
+    input_schema: { type: "object", properties: { input: { type: "string" } } },
+  }))
+}
+
 let savedPassthrough: string | undefined
+let savedThreshold: string | undefined
 
 beforeEach(() => {
   clearSessionCache()
   mockMessages = []
   capturedQueryParams = {}
   savedPassthrough = process.env.MERIDIAN_PASSTHROUGH
+  savedThreshold = process.env.MERIDIAN_DEFER_TOOL_THRESHOLD
   process.env.MERIDIAN_PASSTHROUGH = "1"
+  delete process.env.MERIDIAN_DEFER_TOOL_THRESHOLD
 })
 
 afterEach(() => {
   if (savedPassthrough !== undefined) process.env.MERIDIAN_PASSTHROUGH = savedPassthrough
   else delete process.env.MERIDIAN_PASSTHROUGH
+  if (savedThreshold !== undefined) process.env.MERIDIAN_DEFER_TOOL_THRESHOLD = savedThreshold
+  else delete process.env.MERIDIAN_DEFER_TOOL_THRESHOLD
 })
 
 describe("deferred tool loading — query options", () => {
@@ -177,5 +191,136 @@ describe("deferred tool loading — ToolSearch filtering", () => {
 
     expect(toolNames).not.toContain("ToolSearch")
     expect(toolNames).toContain("custom_lint")
+  })
+})
+
+describe("auto-defer — threshold-based deferral via HTTP", () => {
+  it("enables ENABLE_TOOL_SEARCH when tool count exceeds threshold", async () => {
+    process.env.MERIDIAN_DEFER_TOOL_THRESHOLD = "5"
+    mockMessages = [assistantMessage([{ type: "text", text: "Hello" }])]
+
+    // 6 core tools + 4 generic = 10 tools, above threshold of 5
+    const tools = [
+      { name: "read", description: "Read", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "write", description: "Write", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "edit", description: "Edit", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "bash", description: "Bash", input_schema: { type: "object", properties: { cmd: { type: "string" } } } },
+      { name: "glob", description: "Glob", input_schema: { type: "object", properties: { pat: { type: "string" } } } },
+      { name: "grep", description: "Grep", input_schema: { type: "object", properties: { pat: { type: "string" } } } },
+      ...makeTools(4),
+    ]
+
+    await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({ stream: false, tools, messages: [{ role: "user", content: "hi" }] })),
+    }))
+
+    expect(capturedQueryParams.options.env.ENABLE_TOOL_SEARCH).toBe("true")
+  })
+
+  it("does not enable ENABLE_TOOL_SEARCH when tool count is at or below threshold", async () => {
+    process.env.MERIDIAN_DEFER_TOOL_THRESHOLD = "10"
+    mockMessages = [assistantMessage([{ type: "text", text: "Hello" }])]
+
+    // 6 tools, below threshold of 10
+    const tools = [
+      { name: "read", description: "Read", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "write", description: "Write", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "edit", description: "Edit", input_schema: { type: "object", properties: { path: { type: "string" } } } },
+      { name: "bash", description: "Bash", input_schema: { type: "object", properties: { cmd: { type: "string" } } } },
+      { name: "glob", description: "Glob", input_schema: { type: "object", properties: { pat: { type: "string" } } } },
+      { name: "grep", description: "Grep", input_schema: { type: "object", properties: { pat: { type: "string" } } } },
+    ]
+
+    await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({ stream: false, tools, messages: [{ role: "user", content: "hi" }] })),
+    }))
+
+    expect(capturedQueryParams.options.env.ENABLE_TOOL_SEARCH).toBe("false")
+  })
+
+  it("sets maxTurns to 3 when deferred tools are present", async () => {
+    mockMessages = [assistantMessage([{ type: "text", text: "Hello" }])]
+
+    await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({
+        stream: false,
+        tools: [ALWAYS_LOADED_TOOL, DEFERRED_TOOL],
+        messages: [{ role: "user", content: "Lint my code" }],
+      })),
+    }))
+
+    expect(capturedQueryParams.options.maxTurns).toBe(3)
+  })
+
+  it("sets maxTurns to 2 when no deferred tools", async () => {
+    mockMessages = [assistantMessage([{ type: "text", text: "Hello" }])]
+
+    await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({
+        stream: false,
+        tools: [ALWAYS_LOADED_TOOL],
+        messages: [{ role: "user", content: "Read a file" }],
+      })),
+    }))
+
+    expect(capturedQueryParams.options.maxTurns).toBe(2)
+  })
+
+  it("disables auto-defer when threshold is 0", async () => {
+    process.env.MERIDIAN_DEFER_TOOL_THRESHOLD = "0"
+    mockMessages = [assistantMessage([{ type: "text", text: "Hello" }])]
+
+    // 20 tools, but threshold is 0 (disabled)
+    const tools = [
+      ...makeTools(20),
+    ]
+
+    await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({ stream: false, tools, messages: [{ role: "user", content: "hi" }] })),
+    }))
+
+    expect(capturedQueryParams.options.env.ENABLE_TOOL_SEARCH).toBe("false")
+  })
+})
+
+describe("deferred tool loading — ToolSearch exempted from PreToolUse block", () => {
+  it("does not include ToolSearch in captured tool uses", async () => {
+    // Simulate SDK calling ToolSearch (not blocked) then the actual tool (blocked)
+    const PREFIX = "mcp__oc__"
+    mockMessages = [assistantMessage([
+      { type: "tool_use", id: "tu_search_003", name: "ToolSearch", input: { query: "custom_lint" } },
+      { type: "tool_use", id: "tu_lint_003", name: `${PREFIX}custom_lint`, input: { file: "/tmp/app.ts" } },
+    ])]
+
+    const res = await app().fetch(new Request("http://localhost/v1/messages", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(makeRequest({
+        stream: false,
+        tools: [ALWAYS_LOADED_TOOL, DEFERRED_TOOL],
+        messages: [{ role: "user", content: "Lint my code" }],
+      })),
+    }))
+
+    const body = await res.json() as Record<string, unknown>
+    const content = body.content as Array<Record<string, unknown>>
+
+    // ToolSearch should not appear in response (filtered + not captured by PreToolUse)
+    const toolNames = content.filter((b) => b.type === "tool_use").map((b) => b.name)
+    expect(toolNames).not.toContain("ToolSearch")
+
+    // The actual tool should be captured and forwarded
+    expect(toolNames).toContain("custom_lint")
+    expect(body.stop_reason).toBe("tool_use")
   })
 })
