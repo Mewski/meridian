@@ -318,9 +318,12 @@ Pi uses the `@mariozechner/pi-ai` library which supports a configurable `baseUrl
 
 ```json
 {
-  "anthropic": {
-    "baseUrl": "http://127.0.0.1:3456"
-  }
+	"providers": {
+		"anthropic": {
+			"baseUrl": "http://127.0.0.1:3456",
+			"apiKey": "x"
+		}
+	}
 }
 ```
 
