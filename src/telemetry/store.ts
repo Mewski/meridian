@@ -97,6 +97,3 @@ export class MemoryTelemetryStore implements ITelemetryStore {
 
 /** Singleton store instance used by the proxy. */
 export const telemetryStore = new MemoryTelemetryStore()
-
-/** @deprecated Use MemoryTelemetryStore */
-export { MemoryTelemetryStore as TelemetryStore }

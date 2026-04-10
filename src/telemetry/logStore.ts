@@ -65,6 +65,3 @@ export class MemoryDiagnosticLogStore implements IDiagnosticLogStore {
 
 /** Singleton instance used by the proxy. */
 export const diagnosticLog = new MemoryDiagnosticLogStore()
-
-/** @deprecated Use MemoryDiagnosticLogStore */
-export { MemoryDiagnosticLogStore as DiagnosticLogStore }

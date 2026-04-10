@@ -1,5 +1,5 @@
-export { telemetryStore, MemoryTelemetryStore, TelemetryStore } from "./store"
-export { diagnosticLog, MemoryDiagnosticLogStore, DiagnosticLogStore } from "./logStore"
+export { telemetryStore, MemoryTelemetryStore } from "./store"
+export { diagnosticLog, MemoryDiagnosticLogStore } from "./logStore"
 export { createTelemetryRoutes } from "./routes"
 export { landingHtml } from "./landing"
 export { computePercentiles, computeSummary } from "./percentiles"

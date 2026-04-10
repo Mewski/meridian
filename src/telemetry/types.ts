@@ -189,14 +189,20 @@ export interface DiagnosticLog {
 
 /** Storage backend for diagnostic logs. */
 export interface IDiagnosticLogStore {
+  /** Append a log entry (timestamp is added automatically). */
   log(entry: Omit<DiagnosticLog, "timestamp">): void
+  /** Log a session event. */
   session(message: string, requestId?: string): void
+  /** Log a lineage event (compaction, undo, diverged). */
   lineage(message: string, requestId?: string): void
+  /** Log an error. */
   error(message: string, requestId?: string): void
+  /** Retrieve recent logs, newest first. */
   getRecent(options?: {
     limit?: number
     since?: number
     category?: string
   }): DiagnosticLog[]
+  /** Clear all stored logs. */
   clear(): void
 }
