@@ -2062,6 +2062,11 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
     }
   })
 
+  app.get("/plugins", async (c) => {
+    const { pluginPageHtml } = await import("./plugins/pluginPage")
+    return c.html(pluginPageHtml)
+  })
+
   app.post("/auth/refresh", async (c) => {
     const success = await refreshOAuthToken()
     if (success) {
