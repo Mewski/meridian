@@ -237,6 +237,8 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
   app.use("/metrics", requireAuth)
   app.use("/profiles/*", requireAuth)
   app.use("/profiles", requireAuth)
+  app.use("/plugins/*", requireAuth)
+  app.use("/plugins", requireAuth)
   app.use("/auth/*", requireAuth)
 
   app.get("/", (c) => {
@@ -2024,9 +2026,6 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
   })
 
   // --- Plugin management routes ---
-
-  app.use("/plugins/*", requireAuth)
-  app.use("/plugins", requireAuth)
 
   app.get("/plugins/list", (c) => {
     return c.json({
