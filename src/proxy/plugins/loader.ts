@@ -19,20 +19,27 @@ export async function loadPlugins(
   pluginDir: string,
   configPath?: string,
 ): Promise<LoadedPlugin[]> {
-  if (!existsSync(pluginDir)) return []
-
   const config = configPath ? parsePluginConfig(configPath) : []
 
-  // Discover plugin files
-  let filenames: string[]
-  try {
-    filenames = readdirSync(pluginDir).filter(f => {
-      const ext = extname(f)
-      return ext === ".ts" || ext === ".js"
-    })
-  } catch {
-    return []
+  // Plugins can come from two places:
+  //   1. Auto-discovery in pluginDir (if the directory exists)
+  //   2. Absolute paths referenced in plugins.json
+  // Either source is sufficient on its own — don't bail just because
+  // pluginDir is missing when the user has absolute paths configured.
+  const pluginDirExists = existsSync(pluginDir)
+  let filenames: string[] = []
+  if (pluginDirExists) {
+    try {
+      filenames = readdirSync(pluginDir).filter(f => {
+        const ext = extname(f)
+        return ext === ".ts" || ext === ".js"
+      })
+    } catch {
+      filenames = []
+    }
   }
+
+  if (!pluginDirExists && config.length === 0) return []
 
   // Order: plugins.json entries first (in order), then auto-discovered
   const ordered: Array<{ filename: string; entry?: PluginEntry }> = []

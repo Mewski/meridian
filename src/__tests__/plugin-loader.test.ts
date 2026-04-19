@@ -135,4 +135,35 @@ describe("loadPlugins", () => {
     expect(active[0].name).toBe("beta")
     expect(active[1].name).toBe("alpha")
   })
+
+  it("loads absolute-path plugins from plugins.json even when pluginDir is missing", async () => {
+    // External plugin lives somewhere else entirely — simulates
+    // `~/.config/meridian/plugins.json` pointing at a cloned repo while
+    // `~/.config/meridian/plugins/` doesn't exist yet.
+    const externalDir = mkdtempSync(join(tmpdir(), "meridian-ext-"))
+    const externalPath = join(externalDir, "pi-scrub.js")
+    writeFileSync(externalPath, `
+      export default {
+        name: "external-plugin",
+        version: "1.0.0",
+        onRequest: (ctx) => ctx,
+      }
+    `)
+
+    const configDir = mkdtempSync(join(tmpdir(), "meridian-cfg-"))
+    const configPath = join(configDir, "plugins.json")
+    writeFileSync(configPath, JSON.stringify({
+      plugins: [{ path: externalPath, enabled: true }],
+    }))
+
+    const missingPluginDir = join(configDir, "plugins") // deliberately not created
+    const result = await loadPlugins(missingPluginDir, configPath)
+
+    expect(result.length).toBe(1)
+    expect(result[0].name).toBe("external-plugin")
+    expect(result[0].status).toBe("active")
+
+    rmSync(externalDir, { recursive: true })
+    rmSync(configDir, { recursive: true })
+  })
 })
