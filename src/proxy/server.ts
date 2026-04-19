@@ -21,7 +21,14 @@ export type {
   ToolUseContext,
   ToolResultContext,
   ErrorContext,
+  TransformHook,
+  ObserveHook,
 } from "./transform"
+// Public plugin-authoring runtime helpers. Plugin authors typically don't
+// need these (just call your onRequest function directly in tests), but
+// they're exposed for integration-style tests that want to chain multiple
+// transforms through the same runner meridian uses internally.
+export { runTransformHook, runObserveHook, buildPipeline, createRequestContext } from "./transform"
 import { claudeLog } from "../logger"
 import { exec as execCallback } from "child_process"
 import { promisify } from "util"
@@ -306,8 +313,8 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
   // so silently-updated tool definitions force a rebuild.
   const sessionMcpCache = new LRUMap<string, { key: string; mcp: ReturnType<typeof createPassthroughMcpServer> }>(getMaxSessionsLimit())
 
-  const pluginDir = join(homedir(), ".config", "meridian", "plugins")
-  const pluginConfigPath = join(homedir(), ".config", "meridian", "plugins.json")
+  const pluginDir = finalConfig.pluginDir ?? join(homedir(), ".config", "meridian", "plugins")
+  const pluginConfigPath = finalConfig.pluginConfigPath ?? join(homedir(), ".config", "meridian", "plugins.json")
   let loadedPlugins: LoadedPlugin[] = []
   let pluginTransforms: ReturnType<typeof getActiveTransforms> = []
 

@@ -5,7 +5,15 @@
  * Useful for agents that need the system prompt visible in the
  * conversation history rather than as a separate API parameter.
  *
- * Drop this file in ~/.config/meridian/plugins/ to activate.
+ * Drop this file (or its compiled .js output) in ~/.config/meridian/plugins/
+ * to activate, or reference an absolute path from plugins.json.
+ *
+ * NOTE on the import path below: this example lives inside meridian's source
+ * tree for dogfooding, so it uses a relative path. When authoring your own
+ * plugin in a separate repository, install `@rynfar/meridian` as a peer
+ * dependency and use the published package path instead:
+ *
+ *   import type { Transform, RequestContext } from "@rynfar/meridian"
  */
 
 import type { Transform, RequestContext } from "../../src/proxy/transform"

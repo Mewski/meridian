@@ -76,7 +76,11 @@ export async function loadPlugins(
     }
 
     try {
-      const mod = await import(filePath)
+      // Bust the module cache so POST /plugins/reload picks up file edits.
+      // Without the query string, Node/Bun serve the first-loaded version
+      // forever and authors can't iterate without restarting meridian.
+      const cacheBuster = `?t=${Date.now()}`
+      const mod = await import(filePath + cacheBuster)
       const exported = mod.default ?? mod
 
       // Support single Transform or array of Transforms

@@ -13,6 +13,10 @@ export interface ProxyConfig {
   defaultProfile?: string
   /** Package version, exposed via /health endpoint */
   version?: string
+  /** Plugin auto-discovery directory. Defaults to ~/.config/meridian/plugins/. */
+  pluginDir?: string
+  /** Plugin config file path. Defaults to ~/.config/meridian/plugins.json. */
+  pluginConfigPath?: string
 }
 
 export interface ProxyInstance {

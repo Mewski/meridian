@@ -1,37 +1,62 @@
 # Meridian Plugin Authoring Guide
 
-Plugins let you customize Meridian's request/response behavior without modifying core code. Drop a `.ts` or `.js` file in `~/.config/meridian/plugins/` and restart Meridian.
+Plugins let you customize Meridian's request/response behavior without modifying core code. Drop a compiled `.js` file in `~/.config/meridian/plugins/` and restart Meridian, or point `plugins.json` at a file anywhere on disk (useful for plugins installed as their own npm packages or cloned repos).
+
+> **Runtime note.** The plugin loader uses dynamic `import()`. If you run meridian via `bun`, `.ts` plugin files work directly; if you run via `node` (the default for npm installs), plugins must be compiled to `.js`. When in doubt, ship `.js`.
 
 ## Quick Start
 
-1. Create the plugins directory:
+The fastest path: author the plugin in its own repo, compile to JavaScript, and reference the built file from `plugins.json`.
+
+1. Scaffold a plugin package (TypeScript recommended):
    ```bash
-   mkdir -p ~/.config/meridian/plugins
+   mkdir my-meridian-plugin && cd my-meridian-plugin
+   npm init -y
+   npm install --save-peer @rynfar/meridian
+   npm install --save-dev typescript
+   npx tsc --init
    ```
 
-2. Create a plugin file (e.g., `~/.config/meridian/plugins/my-plugin.ts`):
+2. Write your plugin (`src/index.ts`):
    ```ts
-   export default {
+   import type { Transform, RequestContext } from "@rynfar/meridian"
+
+   const plugin: Transform = {
      name: "my-plugin",
      version: "1.0.0",
      description: "What this plugin does",
 
-     onRequest(ctx) {
-       // Modify the request context and return it
+     onRequest(ctx: RequestContext): RequestContext {
        return { ...ctx, model: "custom-model" }
      },
    }
+
+   export default plugin
    ```
 
-3. Restart Meridian or call `POST /plugins/reload`
+3. Build it:
+   ```bash
+   npx tsc
+   ```
 
-4. Check `http://localhost:3456/plugins` to verify your plugin loaded
+4. Tell meridian about it via `~/.config/meridian/plugins.json`:
+   ```json
+   {
+     "plugins": [
+       { "path": "/absolute/path/to/my-meridian-plugin/dist/index.js", "enabled": true }
+     ]
+   }
+   ```
+
+5. Restart meridian or call `POST /plugins/reload`. Visit `http://localhost:3456/plugins` to confirm it loaded.
 
 ## Transform Interface
 
-Plugins export a `Transform` object with optional hooks:
+Plugins export a `Transform` object. Import the types from `@rynfar/meridian`:
 
 ```ts
+import type { Transform, RequestContext, ResponseContext, TelemetryContext } from "@rynfar/meridian"
+
 interface Transform {
   name: string              // Required: unique plugin name
   description?: string      // Shown in /plugins UI
@@ -112,20 +137,26 @@ Available adapters: `opencode`, `crush`, `droid`, `pi`, `forgecode`, `passthroug
 
 ## Plugin Configuration
 
-Control ordering and enable/disable via `~/.config/meridian/plugins.json`:
+Control which plugins load, their order, and enable/disable via `~/.config/meridian/plugins.json`:
 
 ```json
 {
   "plugins": [
-    { "path": "system-prompt-redirect.ts", "enabled": true },
-    { "path": "custom-logger.ts", "enabled": false }
+    { "path": "/Users/me/repos/my-plugin/dist/index.js", "enabled": true },
+    { "path": "other-plugin.js", "enabled": false }
   ]
 }
 ```
 
+**Path resolution:**
+- **Absolute paths** (e.g. `/Users/me/repos/my-plugin/dist/index.js`) are loaded directly. Use this for plugins installed in their own repos or via `npm install`.
+- **Relative paths** (e.g. `other-plugin.js`) are resolved against `~/.config/meridian/plugins/` and auto-discovered from that directory alongside any files dropped in.
+
+**Behavior:**
 - Array order = execution order in the pipeline
-- `enabled: false` disables without deleting the file
-- Plugins not in `plugins.json` are appended at the end, enabled by default
+- `enabled: false` disables a plugin without deleting the file
+- Plugins not listed in `plugins.json` but present in `~/.config/meridian/plugins/` are appended at the end, enabled by default
+- Absolute paths work even when `~/.config/meridian/plugins/` doesn't exist — no need to create the auto-scan directory if you only use external plugins
 
 ## The Metadata Bag
 
@@ -148,12 +179,39 @@ If a plugin throws, it is skipped and the next plugin runs. The proxy never cras
 
 ## Testing Plugins
 
-Test a transform in isolation:
+Transforms are pure functions — hand them a context and assert on the return value. You don't need meridian's pipeline runner for unit tests:
 
 ```ts
-import { createRequestContext, runTransformHook } from "@rynfar/meridian/transform"
+import type { Transform, RequestContext } from "@rynfar/meridian"
+import plugin from "./src/index.js"
 
-const myPlugin = { name: "test", onRequest: (ctx) => ({ ...ctx, model: "custom" }) }
+const baseCtx: RequestContext = {
+  adapter: "opencode",
+  body: {},
+  headers: new Headers(),
+  model: "sonnet",
+  messages: [],
+  stream: false,
+  workingDirectory: "/tmp",
+  blockedTools: [],
+  incompatibleTools: [],
+  allowedMcpTools: [],
+  sdkAgents: {},
+  supportsThinking: false,
+  shouldTrackFileChanges: true,
+  leaksCwdViaSystemReminder: false,
+  metadata: {},
+}
+
+// Straight unit test — call your hook directly
+const result = plugin.onRequest!({ ...baseCtx, systemContext: "hello" })
+console.assert(result.systemContext === "HELLO")
+```
+
+For integration-style tests (multiple plugins chained, adapter scoping, error isolation), you can import the runtime helpers:
+
+```ts
+import { runTransformHook, createRequestContext } from "@rynfar/meridian"
 
 const ctx = createRequestContext({
   adapter: "opencode",
@@ -165,8 +223,7 @@ const ctx = createRequestContext({
   workingDirectory: "/tmp",
 })
 
-const result = runTransformHook([myPlugin], "onRequest", ctx, "opencode")
-console.assert(result.model === "custom")
+const result = runTransformHook([plugin], "onRequest", ctx, "opencode")
 ```
 
 ## Plugin Management UI
