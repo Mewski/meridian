@@ -8,6 +8,7 @@
 
 import type { FileChange } from "./fileChanges"
 import type { SettingSource } from "@anthropic-ai/claude-agent-sdk"
+import { isTrackedPlugin, recordInvocation, recordError } from "./plugins/stats"
 
 /**
  * A composable unit of request/response behavior.
@@ -126,9 +127,14 @@ export function runTransformHook<T>(
     const fn = transform[hook] as ((ctx: T) => T) | undefined
     if (!fn) return acc
     if (transform.adapters && !transform.adapters.includes(adapterName)) return acc
+    const tracked = isTrackedPlugin(transform.name)
+    const startAt = tracked ? performance.now() : 0
     try {
-      return fn.call(transform, acc)
+      const result = fn.call(transform, acc)
+      if (tracked) recordInvocation(transform.name, hook, performance.now() - startAt)
+      return result
     } catch (err) {
+      if (tracked) recordError(transform.name, hook, err)
       console.error(`[PLUGIN] Transform "${transform.name}" threw in ${hook}: ${err instanceof Error ? err.message : String(err)}`)
       return acc
     }
@@ -149,9 +155,13 @@ export function runObserveHook<T>(
     const fn = transform[hook] as ((ctx: T) => void) | undefined
     if (!fn) continue
     if (transform.adapters && !transform.adapters.includes(adapterName)) continue
+    const tracked = isTrackedPlugin(transform.name)
+    const startAt = tracked ? performance.now() : 0
     try {
       fn.call(transform, ctx)
+      if (tracked) recordInvocation(transform.name, hook, performance.now() - startAt)
     } catch (err) {
+      if (tracked) recordError(transform.name, hook, err)
       console.error(`[PLUGIN] Transform "${transform.name}" threw in ${hook}: ${err instanceof Error ? err.message : String(err)}`)
     }
   }

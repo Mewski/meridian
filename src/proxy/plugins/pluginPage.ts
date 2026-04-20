@@ -92,6 +92,31 @@ export const pluginPageHtml = `<!DOCTYPE html>
   .summary-count strong { color: var(--text); font-weight: 600; }
   .summary-count.active strong { color: var(--green); }
   .summary-count.error strong { color: var(--red); }
+
+  .plugin-stats { margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid var(--border); }
+  .plugin-stats-empty { margin-top: 14px; padding: 10px 14px;
+    background: var(--surface2); border-radius: 6px; font-size: 12px;
+    color: var(--muted); font-style: italic; }
+  .stats-header { font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--muted); font-weight: 500; margin-bottom: 8px; }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+    margin-bottom: 12px; }
+  .stat-cell { background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px; }
+  .stat-num { font-size: 18px; font-weight: 600; color: var(--text);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace;
+    font-variant-numeric: tabular-nums; line-height: 1.2; }
+  .stat-num.stat-err { color: var(--red); }
+  .stat-unit { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 2px; }
+  .stat-lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px;
+    color: var(--muted); margin-top: 4px; }
+  .stats-breakdown { display: flex; gap: 8px; flex-wrap: wrap; }
+  .hook-pill { font-size: 11px; padding: 3px 8px; border-radius: 4px;
+    background: var(--surface2); color: var(--muted);
+    font-family: 'SF Mono', SFMono-Regular, Consolas, monospace; }
+  .hook-pill strong { color: var(--text); font-weight: 600; }
+  .hook-err { color: var(--red); font-weight: 500; }
 ` + profileBarCss + `
 </style>
 </head>
@@ -206,6 +231,10 @@ function render(plugins) {
     html += '<div class="meta-item"><span class="meta-label">Adapters</span><span class="meta-value">' + esc(adapters) + '</span></div>';
     html += '</div>';
 
+    if (p.status === 'active' && p.stats) {
+      html += renderStats(p.stats);
+    }
+
     if (p.status === 'error' && p.error) {
       html += '<div class="plugin-error-box">' + esc(p.error) + '</div>';
     }
@@ -215,6 +244,77 @@ function render(plugins) {
 
   document.getElementById('content').innerHTML = html;
 }
+
+function renderStats(s) {
+  var hooks = s.hooks || {};
+  var hookNames = Object.keys(hooks);
+  if (hookNames.length === 0 && !s.lastInvokedAt && !s.lastError) {
+    return '<div class="plugin-stats-empty">No invocations yet \u2014 send a request to see counters.</div>';
+  }
+
+  var totalInvocations = 0, totalErrors = 0, totalMs = 0;
+  for (var i = 0; i < hookNames.length; i++) {
+    var h = hooks[hookNames[i]];
+    totalInvocations += h.invocations || 0;
+    totalErrors += h.errors || 0;
+    totalMs += h.totalMs || 0;
+  }
+
+  var html = '<div class="plugin-stats">';
+  html += '<div class="stats-header">Invocations</div>';
+  html += '<div class="stats-grid">';
+  html += '<div class="stat-cell"><div class="stat-num">' + totalInvocations + '</div><div class="stat-lbl">calls</div></div>';
+  html += '<div class="stat-cell"><div class="stat-num ' + (totalErrors > 0 ? 'stat-err' : '') + '">' + totalErrors + '</div><div class="stat-lbl">errors</div></div>';
+  var avgMs = totalInvocations > 0 ? (totalMs / totalInvocations).toFixed(2) : '0.00';
+  html += '<div class="stat-cell"><div class="stat-num">' + avgMs + '<span class="stat-unit">ms</span></div><div class="stat-lbl">avg</div></div>';
+  if (s.lastInvokedAt) {
+    html += '<div class="stat-cell"><div class="stat-num">' + formatRelative(s.lastInvokedAt) + '</div><div class="stat-lbl">last seen</div></div>';
+  }
+  html += '</div>';
+
+  if (hookNames.length > 0) {
+    html += '<div class="stats-breakdown">';
+    for (var j = 0; j < hookNames.length; j++) {
+      var name = hookNames[j];
+      var hd = hooks[name];
+      html += '<span class="hook-pill">'
+        + esc(name) + ': <strong>' + (hd.invocations || 0) + '</strong>'
+        + (hd.errors > 0 ? ' <span class="hook-err">(' + hd.errors + ' err)</span>' : '')
+        + '</span>';
+    }
+    html += '</div>';
+  }
+
+  if (s.lastError) {
+    html += '<div class="plugin-error-box">'
+      + 'Last error in <strong>' + esc(s.lastError.hook) + '</strong> '
+      + formatRelative(s.lastError.at)
+      + ': ' + esc(s.lastError.message)
+      + '</div>';
+  }
+
+  html += '</div>';
+  return html;
+}
+
+function formatRelative(ts) {
+  var diffMs = Date.now() - ts;
+  if (diffMs < 0) return 'just now';
+  var s = Math.floor(diffMs / 1000);
+  if (s < 5) return 'just now';
+  if (s < 60) return s + 's ago';
+  var m = Math.floor(s / 60);
+  if (m < 60) return m + 'm ago';
+  var h = Math.floor(m / 60);
+  if (h < 24) return h + 'h ago';
+  return Math.floor(h / 24) + 'd ago';
+}
+
+// Periodic refresh so you can watch invocation counters climb while
+// you drive traffic through the proxy. Stops when the tab is hidden.
+setInterval(function() {
+  if (document.visibilityState === 'visible') loadPlugins();
+}, 3000);
 
 loadPlugins();
 ` + profileBarJs + `

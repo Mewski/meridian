@@ -2081,7 +2081,8 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
 
   // --- Plugin management routes ---
 
-  app.get("/plugins/list", (c) => {
+  app.get("/plugins/list", async (c) => {
+    const { getPluginStats } = await import("./plugins/stats")
     return c.json({
       plugins: loadedPlugins.map(p => ({
         name: p.name,
@@ -2092,6 +2093,7 @@ export function createProxyServer(config: Partial<ProxyConfig> = {}): ProxyServe
         status: p.status,
         path: p.path,
         ...(p.error ? { error: p.error } : {}),
+        ...(p.status === "active" ? { stats: getPluginStats(p.name) } : {}),
       })),
     })
   })

@@ -3,6 +3,12 @@ import { join, isAbsolute, extname } from "path"
 import type { Transform } from "../transform"
 import type { PluginEntry, PluginConfig, LoadedPlugin } from "./types"
 import { validateTransform } from "./validation"
+import { registerPluginStats, resetAllPluginStats } from "./stats"
+
+// Monotonic counter appended to the import cache-buster. Date.now() alone
+// collides when multiple reloads happen within the same millisecond (tests,
+// rapid hot iteration), causing Node/Bun to serve the cached module.
+let loadCounter = 0
 
 export function parsePluginConfig(configPath: string): PluginEntry[] {
   if (!existsSync(configPath)) return []
@@ -19,6 +25,10 @@ export async function loadPlugins(
   pluginDir: string,
   configPath?: string,
 ): Promise<LoadedPlugin[]> {
+  // Wipe stats before loading so plugins removed from the config don't leave
+  // stale counters behind and reloaded plugins start fresh.
+  resetAllPluginStats()
+
   const config = configPath ? parsePluginConfig(configPath) : []
 
   // Plugins can come from two places:
@@ -79,7 +89,10 @@ export async function loadPlugins(
       // Bust the module cache so POST /plugins/reload picks up file edits.
       // Without the query string, Node/Bun serve the first-loaded version
       // forever and authors can't iterate without restarting meridian.
-      const cacheBuster = `?t=${Date.now()}`
+      // Include a counter in addition to Date.now() — when reload fires
+      // many times within the same millisecond (tests, hot iteration) the
+      // timestamp alone collides and we serve the cached build.
+      const cacheBuster = `?t=${Date.now()}-${++loadCounter}`
       const mod = await import(filePath + cacheBuster)
       const exported = mod.default ?? mod
 
@@ -115,6 +128,7 @@ export async function loadPlugins(
         }
 
         seenNames.add(transform.name)
+        registerPluginStats(transform.name)
         loaded.push({
           name: transform.name,
           description: transform.description,
